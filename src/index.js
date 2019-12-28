@@ -47,7 +47,7 @@ export default class Push extends eventemitter {
   constructor (opts = {}) {
     super();
 
-    const options = Object.assign(opts, {logging: true});
+    const options = Object.assign({ logging: true }, opts);
     log.enabled = options.logging;
     this.activePads = [];
     this.batchCommands = []; // batch commands in case something is called before web midi is enabled
@@ -82,9 +82,18 @@ export default class Push extends eventemitter {
   }
 
   setupPush () {
+    console.log("setting up")
     const push = this;
-    push.output = WebMidi.getOutputByName('Ableton Push 2 User Port');
-    push.input = WebMidi.getInputByName('Ableton Push 2 User Port');
+    const deviceNames = ['Ableton Push 2 User Port', 'Ableton Push 2 MIDI 2'];
+    for (name of deviceNames) {
+      push.input = WebMidi.getInputByName(name);
+      push.output = WebMidi.getOutputByName(name);
+      if (push.input && push.output) {
+        log(`Found push by the name of ${name}`)
+        break;
+      }
+    }
+
     if (!push.input || !push.output) {
       log('push not connected');
       push.emit('push:failed');
@@ -116,6 +125,7 @@ export default class Push extends eventemitter {
         }
         push.emit(`push:encoder:${name}`, movement);
         push.emit(`push:encoder:${number}`, movement);
+        push.emit(`push:encoder`, { name, number, movement, event: e})
       }
     });
 
@@ -138,7 +148,7 @@ export default class Push extends eventemitter {
       const {col, row} = padPosition(pad);
       const notePressed = getNoteOctave(row, col);
 
-      this.emit('note:on', notePressed);
+      this.emit('note:on', {...notePressed, event: e});
       log('NOTE PRESSED', notePressed);
       push.padPressed(notePressed);
     });
@@ -147,7 +157,7 @@ export default class Push extends eventemitter {
       const {col, row} = padPosition(e.data[1]);
       const noteReleased = getNoteOctave(row, col);
 
-      this.emit('note:off', noteReleased);
+      this.emit('note:off', {...noteReleased, event: e});
       log('NOTE RELEASED', noteReleased);
       push.padReleased(noteReleased);
     });
